@@ -1,6 +1,9 @@
 package mina_test;
 
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.mina.core.filterchain.DefaultIoFilterChainBuilder;
 import org.apache.mina.filter.codec.ProtocolCodecFilter;
 import org.apache.mina.filter.codec.textline.TextLineCodecFactory;
@@ -13,10 +16,13 @@ import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
  * 
  * @author The Apache MINA Project (dev@mina.apache.org)
  * @version $Rev$, $Date$
+ * 
  */
 public class Main {
 	/** Choose your favorite port number. */
 	private static final int PORT = 1234;
+	
+	private static Object lock = new Object();
 
 	public static void main(String[] args) throws Exception {
 		// 新建服务器socket
@@ -42,6 +48,16 @@ public class Main {
 		acceptor.bind(new InetSocketAddress(PORT));
 
 		System.out.println("Listening on port " + PORT);
+		
+		
+		 List _client = new ArrayList();
+		 synchronized (lock) {
+		 for(int i =0 ;i<5000;i++)
+		 {
+			 _client.add(20);
+		 }
+		 }
+		 System.out.println("Listening on port " + PORT);
 	}
 
 }

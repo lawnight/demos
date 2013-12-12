@@ -29,9 +29,11 @@ public class ChatProtocolHandler extends IoHandlerAdapter {
 
 	private List _client = new ArrayList();
 
+	private static Object lock = new Object();
+
 	@Override
 	public void exceptionCaught(IoSession session, Throwable cause) {
-		System.out.print("unexpert error");	
+		System.out.print("unexpert error");
 		System.out.print(cause);
 		session.close(true);
 	}
@@ -39,12 +41,17 @@ public class ChatProtocolHandler extends IoHandlerAdapter {
 	@Override
 	public void sessionOpened(IoSession session) {
 		try {
-			_client.add(session);
-			if (_client.size() >= 5000) {
-				borcast();
+			synchronized (lock) {
+				_client.add(session);
+
+				if (_client.size() >= count) {
+					borcast();
+				}
 			}
+			// System.out.format("get client  %d \n",_client.size());
 		} catch (Exception e) {
 			System.out.print("sessionOpened error");
+			System.out.print(e);
 		}
 	}
 
@@ -58,20 +65,35 @@ public class ChatProtocolHandler extends IoHandlerAdapter {
 		}
 	}
 
+	long star = 0;
+	long end = 0;
+
 	private void borcast() {
-		long star = System.currentTimeMillis();
+		star = System.currentTimeMillis();
 		for (int i = 0; i < _client.size(); i++) {
 			IoSession item = (IoSession) _client.get(i);
 			item.write("hello");
 		}
-		long end = System.currentTimeMillis();
-		System.out.print("cost timer");
-		System.out.print(end-star);
-		
+
+	}
+
+	int count = 5000;
+	int _count = 0;
+
+	@Override
+	public void messageSent(IoSession session, Object message) throws Exception {
+		_count++;
+		if (_count >= count) {
+			end = System.currentTimeMillis();
+			System.out.print("cost timer");
+			System.out.print(end - star);
+		}
+
 	}
 
 	@Override
 	public void sessionClosed(IoSession session) throws Exception {
+		System.out.print("count some");
 		_client.remove(session);
 	}
 }
