@@ -24,7 +24,7 @@ namespace 淘宝工具
         //读取一个data的副本
         public System.Data.DataTable GetExcelData(string excelFilePath)
         {
-            excelFilePath = @"e:\111.csv";
+            excelFilePath = @"e:\88.csv";
          
             object oMissiong = System.Reflection.Missing.Value;
            
@@ -124,8 +124,7 @@ namespace 淘宝工具
 
             Excel.Range cell = (Excel.Range)worksheet.Cells[rowCount, coluCount];
             cell.Value2 = value;
-        }
-      
+        }   
 
     }
 }

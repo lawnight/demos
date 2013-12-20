@@ -11,6 +11,7 @@ using Excel = Microsoft.Office.Interop.Excel;
 using AP = HtmlAgilityPack;
 using System.Net;
 using System.IO;
+using System.Threading;
 
 
 namespace 淘宝工具
@@ -20,9 +21,13 @@ namespace 淘宝工具
         public Form1()
         {
             InitializeComponent();
+            Control.CheckForIllegalCrossThreadCalls = false;
         }
 
         DataTable dataList;
+
+        Dictionary<string, string> ImgList = new Dictionary<string, string>();
+
         
         public void ShowDataInListView(DataTable dt, ListView lst)
         {
@@ -42,13 +47,12 @@ namespace 淘宝工具
             ColCount = dt.Columns.Count;
 
             //添加index
-            lst.Columns.Add("index", 20, HorizontalAlignment.Left);
+            lst.Columns.Add("Id", 30, HorizontalAlignment.Left);
             //添加列标题名
             for (i = 0; i < ColCount; i++)
             {
                 lst.Columns.Add(dt.Columns[i].Caption.Trim(), 100, HorizontalAlignment.Left);
-            }
-           
+            }          
 
             //添加内容
             for (i = 0; i < RowCount; i++)
@@ -64,89 +68,120 @@ namespace 淘宝工具
             }
         }
 
-        private void button1_Click_1(object sender, EventArgs e)
+        private void WorkThread(object par)
         {
-            ExcelOperate excel = new ExcelOperate();
-            DataTable dt = excel.GetExcelData(null);
-            //显示
-            ShowDataInListView(dt, this.listView1);
-            return;
-            
+            DataTable dt = (DataTable)par;
+            if (dt == null)
+            {
+                MessageBox.Show("请先读取数据");
+                return;
+            }
             //分析
             int rowCount = 0;
+
+           
+
             foreach (DataRow row in dt.Rows)
             {
-                rowCount++;
+                
                 string des = (String)row["description"];
                 string cid = (String)row["cid"];
                 string title = (String)row["title"];
 
                 AP.HtmlDocument doc = new AP.HtmlDocument();
-                doc.LoadHtml(des);
+                doc.LoadHtml(des);               
 
-                List<string> imgList = new List<string>();
-
-                string root= @"D:\";
+                string root = @"D:\";
 
                 if (title.Length < 6)
                 {
                     continue;
                 }
 
-                string path = root+title.Substring(title.Length - 6, 5);
+                string path = root;
+                //string path = root + title.Substring(title.Length - 6, 5);
 
                 if (!Directory.Exists(path))
                     Directory.CreateDirectory(path);
 
-
-                int imgCount=0;
-                //循环下载图片
+                int imgCount = 0;
+                //得到需要下载图片
                 foreach (AP.HtmlNode item in doc.DocumentNode.SelectNodes("//img"))
                 {
                     HtmlAgilityPack.HtmlAttribute att = item.Attributes["src"];
-                    imgList.Add(att.Value);
-                    imgCount++;
 
+                    if (att == null)
+                    {
+                        continue;
+                    }
+                    //downUrl
+                    string DownUrl = att.Value;
                     //文件名
-
-                    string name = string.Format("{0}-{1}.jpg",rowCount,imgCount);
-                    string fileName = path +@"\"+ name;
-                    //下载图片
-                    WebRequest request = WebRequest.Create(att.Value);
-                    WebResponse response = request.GetResponse();
-                    Stream imgStream = response.GetResponseStream();
-
-                    FileStream file = new FileStream(fileName, FileMode.OpenOrCreate, FileAccess.Write);
-                    StreamWriter writer = new StreamWriter(file);
-
-                    int length =(int)response.ContentLength;
-                  
-                    byte[] buff = new byte[length];
-                    imgStream.Read(buff, 0, length);
-                    writer.Write(buff);
-                    file.Write(buff, 0, length);
-
-                    //修改html
-                    att.Value = fileName;                    
-
-                    //释放资源
-                    writer.Close();
-                    writer.Dispose();
-                    imgStream.Close();
-                    imgStream.Dispose();
-                    response.Close();
+                    string name = string.Format("{0}-{1}.jpg", rowCount, imgCount);
+                    string fileName = path + @"\" + name;
+                    imgCount++;
+                    ImgList.Add(fileName,att.Value);                   
+                    //修改Url
+                    att.Value = fileName;
                 }
-
                 string alterhtml = doc.DocumentNode.OuterHtml;
-                webBrowser1.DocumentText = alterhtml;//string.Format("<html><body>{0}</body></html>", des);
-                //修改excel
-                int ColuIndex= row.Table.Columns["description"].Ordinal;
-
-                excel.SetExcelData(rowCount, ColuIndex, alterhtml);
-
-
-               // MessageBox.Show(string.Format("img count {0}", imgList.Count));
+                //webBrowser1.DocumentText = alterhtml;
+                CSVFile.SetCSVData(rowCount, "description", alterhtml);
+                rowCount++;
             }
+            //修改CSV
+            CSVFile.PushData();
+            //开始下载图片
+            //DownImg();
+        }    
+
+        private void DownImg()
+        {
+            progressBar1.Maximum = ImgList.Count;
+            progressBar1.Value = 0;
+            foreach ( var item in ImgList)
+            {               
+                string fileName = item.Key;
+                string  url= item.Value;
+                WebClient webclient = new WebClient();
+                webclient.DownloadFile(url, fileName);//修改成异步的
+                progressBar1.Value++;
+                /*
+                WebRequest request = WebRequest.Create(url);                
+                WebResponse response = request.GetResponse();                
+                Stream imgStream = response.GetResponseStream();
+
+                FileStream file = new FileStream(fileName, FileMode.OpenOrCreate, FileAccess.Write);
+                StreamWriter writer = new StreamWriter(file);
+
+                int length = (int)response.ContentLength;
+
+                byte[] buff = new byte[length];
+                imgStream.Read(buff, 0, length);
+                writer.Write(buff);
+                file.Write(buff, 0, length);
+                //释放资源
+                writer.Close();
+                writer.Dispose();
+                imgStream.Close();
+                imgStream.Dispose();
+                response.Close();*/               
+            }
+            ImgList.Clear();
+        }
+
+        private CSVOperate CSVFile;
+
+        private DataTable CSVDataTable;       
+
+        private void button1_Click_1(object sender, EventArgs e)
+        {
+            CSVFile = new CSVOperate(null);
+            CSVDataTable = CSVFile.GetCSVData();
+            //显示
+            ShowDataInListView(CSVDataTable, this.listView1);
+
+           
         }
 
         private void listView1_SelectedIndexChanged(object sender, EventArgs e)
@@ -162,6 +197,14 @@ namespace 淘宝工具
             //    form.Show();              
             //}
           
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            progressBar1.Visible = true;            
+            Thread workThread = new Thread(new ParameterizedThreadStart(WorkThread));
+            workThread.IsBackground = true;
+            workThread.Start(CSVDataTable);
         }
     }
 

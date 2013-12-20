@@ -52,6 +52,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CSVOperate.cs" />
+    <Compile Include="CSVStreamWriter.cs" />
     <Compile Include="ExcelOperate.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
